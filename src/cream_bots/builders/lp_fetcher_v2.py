@@ -31,6 +31,11 @@ def main():
     else:
         chains_to_process = cream_chains_data
 
+    # The data directory is up one level from the current directory and then into 'data'
+    current_dir = Path(__file__).resolve().parent
+    data_dir = current_dir.parent / "data"
+    data_dir.mkdir(exist_ok=True)
+
     for chain_name, chain_data in chains_to_process.items():
 
         print(
@@ -52,18 +57,18 @@ def main():
 
             print(f"Factory: {exchange_name}")
 
-            # Get the directory of the script or module
-            current_dir = Path(__file__).resolve().parent
+            chain_data_dir = data_dir / chain_name
+            chain_data_dir.mkdir(
+                exist_ok=True
+            )  # Create the chain-specific directory if it doesn't exist
 
-            # The data directory is up one level from the current directory and then into 'data'
-            data_dir = current_dir.parent / "data"
-            data_file = data_dir / chain_name / f"{chain_name}_{exchange_name}_v2.json"
+            data_file = chain_data_dir / f"{chain_name}_{exchange_name}_v2.json"
 
             # See if we have an existing file
-            try:
+            if data_file.exists():
                 with open(data_file) as file:
                     lp_data = ujson.load(file)
-            except FileNotFoundError:
+            else:
                 lp_data = []
 
             # Check if there are LPs in the file

@@ -54,17 +54,21 @@ def main():
     else:
         chains_to_process = cream_chains_data
 
+    current_dir = Path(__file__).resolve().parent
+    data_dir = current_dir.parent / "data"
+    data_dir.mkdir(exist_ok=True)
+
     for chain_name, chain_data in chains_to_process.items():
 
         chain_data = cream_chains_data[chain_name]
         w3 = web3.Web3(web3.WebsocketProvider(chain_data.get("websocket_uri")))
         newest_block = w3.eth.block_number
 
-        current_dir = Path(__file__).resolve().parent
-        data_dir = current_dir.parent / "data"
-        snapshot_file = (
-            data_dir / chain_name / f"{chain_name}_v3_liquidity_snapshot.json"
-        )
+        chain_data_dir = data_dir / chain_name
+        chain_data_dir.mkdir(
+            exist_ok=True
+        )  # Create the chain-specific directory if it doesn't exist
+        snapshot_file = chain_data_dir / f"{chain_name}_v3_liquidity_snapshot.json"
         print()
 
         print(
@@ -82,17 +86,18 @@ def main():
         factories = chain_data.get("factories").get("v3")
 
         for name, _ in factories.items():
-            lp_file = data_dir / chain_name / f"{chain_name}_{name}_v3.json"
+            lp_file = chain_data_dir / f"{chain_name}_{name}_v3.json"
             paths.append(lp_file)
 
         for path in paths:
-            try:
-                with open(path, "r") as file:
+            if path.exists():
+                with open(path) as file:
                     l = ujson.load(file)
                 for lp in l:
                     lp_data[lp["pool_address"]] = lp
-            except Exception as e:
-                print(e)
+            else:
+                print("File does not exist")
+                return
 
         try:
             with open(snapshot_file, "r") as file:

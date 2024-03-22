@@ -23,6 +23,10 @@ def main():
     else:
         chains_to_process = cream_chains_data
 
+    current_dir = Path(__file__).resolve().parent
+    data_dir = current_dir.parent / "data"
+    data_dir.mkdir(exist_ok=True)
+
     for chain_name, chain_data in chains_to_process.items():
 
         chain_data = cream_chains_data[chain_name]
@@ -41,12 +45,14 @@ def main():
             f"\n"
         )
 
-        current_dir = Path(__file__).resolve().parent
-        data_dir = current_dir.parent / "data"
+        chain_data_dir = data_dir / chain_name
+        chain_data_dir.mkdir(
+            exist_ok=True
+        )  # Create the chain-specific directory if it doesn't exist
 
         v2_lp_data = {}
-        for name, details in v2_factories.items():
-            lp_file = data_dir / chain_name / f"{chain_name}_{name}_v2.json"
+        for name, _ in v2_factories.items():
+            lp_file = chain_data_dir / f"{chain_name}_{name}_v2.json"
             print(f"Loading {lp_file}")
             with open(lp_file) as file:
                 for pool in ujson.load(file):
@@ -57,7 +63,7 @@ def main():
 
         v3_lp_data = {}
         for name, _ in v3_factories.items():
-            lp_file = data_dir / chain_name / f"{chain_name}_{name}_v3.json"
+            lp_file = chain_data_dir / f"{chain_name}_{name}_v3.json"
             print(f"Loading {lp_file}")
             with open(lp_file) as file:
                 for pool in ujson.load(file):
@@ -210,7 +216,7 @@ def main():
             f"Found {len(three_pool_arb_paths)} unique three-pool arbitrage paths in {time.monotonic() - start_timer:.5f}s"
         )
         print("• Saving pool data to JSON")
-        arbs_file = data_dir / chain_name / f"{chain_name}_arb_paths_3.json"
+        arbs_file = chain_data_dir / f"{chain_name}_arb_paths_3.json"
 
         with open(arbs_file, "w") as file:
             ujson.dump(three_pool_arb_paths, file, indent=4)
