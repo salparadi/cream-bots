@@ -1,0 +1,75 @@
+#####################
+#   EXPLORER KEYS   #
+#####################
+# Sign up for an API key at the respective blockchain explorer website
+
+export ARBISCAN_API_KEY=###
+export SNOWTRACE_API_KEY=###
+export BASESCAN_API_KEY=###
+export ETHERSCAN_API_KEY=###
+export OPTIMISTIC_ETHERSCAN_API_KEY=###
+export POLYGONSCAN_API_KEY=###
+
+
+######################
+#      RPC URLS      #
+######################
+# Paste the HTTP(S) and WS(S) addresses here. Change the APE_NETWORK definitions to match whatever you're using.
+
+export ARBITRUM_NODE=alchemy
+export ARBITRUM_APE_NETWORK=arbitrum:mainnet:alchemy
+export ARBITRUM_HTTP_URI=https://arb-mainnet.g.alchemy.com/v2/###
+export ARBITRUM_WEBSOCKET_URI=wss://arb-mainnet.g.alchemy.com/v2/###
+
+export AVALANCHE_NODE=infura
+export AVALANCHE_APE_NETWORK=avalanche:mainnet:infura
+export AVALANCHE_HTTP_URI=https://avalanche-mainnet.infura.io/v3/###
+export AVALANCHE_WEBSOCKET_URI=wss://avalanche-mainnet.infura.io/ws/v3/###
+
+export BASE_NODE=alchemy
+export BASE_APE_NETWORK=base:mainnet:alchemy
+export BASE_HTTP_URI=https://base-mainnet.g.alchemy.com/v2/###
+export BASE_WEBSOCKET_URI=wss://base-mainnet.g.alchemy.com/v2/###
+
+export ETHEREUM_NODE=alchemy
+export ETHEREUM_APE_NETWORK=ethereum:mainnet:alchemy
+export ETHEREUM_HTTP_URI=https://eth-mainnet.g.alchemy.com/v2/###
+export ETHEREUM_WEBSOCKET_URI=wss://eth-mainnet.g.alchemy.com/v2/###
+
+export OPTIMISM_NODE=alchemy
+export OPTIMISM_APE_NETWORK=optimism:mainnet:alchemy
+export OPTIMISM_HTTP_URI=https://opt-mainnet.g.alchemy.com/v2/###
+export OPTIMISM_WEBSOCKET_URI=wss://opt-mainnet.g.alchemy.com/v2/###
+
+export POLYGON_NODE=alchemy
+export POLYGON_APE_NETWORK=polygon:mainnet:alchemy
+export POLYGON_HTTP_URI=https://polygon-mainnet.g.alchemy.com/v2/###
+export POLYGON_WEBSOCKET_URI=wss://polygon-mainnet.g.alchemy.com/v2/###
+
+
+######################
+#   APE INFURA KEY   #
+######################
+# Paste your Infura Key here if you are using Infura for your Ape connections.
+
+export WEB3_INFURA_PROJECT_ID=###
+
+
+######################
+#  APE ALCHEMY KEYS  #
+######################
+# Paste your Alchemy Keys here if you are using Alchemy for your Ape connections.
+
+export WEB3_ARBITRUM_MAINNET_ALCHEMY_API_KEY=###
+export WEB3_BASE_MAINNET_ALCHEMY_API_KEY=###
+export WEB3_ETHEREUM_MAINNET_ALCHEMY_API_KEY=###
+export WEB3_OPTIMISM_MAINNET_ALCHEMY_API_KEY=###
+export WEB3_POLYGON_MAINNET_ALCHEMY_API_KEY=###
+
+
+######################
+#    APE ACCOUNTS    #
+######################
+# If you want to autosign without a password
+
+export APE_ACCOUNTS_accountname_PASSPHRASE="###"

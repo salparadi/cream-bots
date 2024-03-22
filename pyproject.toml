@@ -1,0 +1,38 @@
+[project]
+name = "cream_bots"
+version = "1.0"
+authors = [
+	{ name="salparadi", email="cream@salparadi.com" },
+]
+description = "Bots for EVM chains, using CREAM."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+	"ape",
+	"degenbot",
+	"networkx",
+	"redis",
+	"tqdm",
+	"ujson"
+]
+license = {text = "MIT"}
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"License :: OSI Approved :: MIT License",
+	"Development Status :: 3 - Alpha",
+	"Intended Audience :: Developers",
+	"Natural Language :: English",
+	"Operating System :: POSIX",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+cream_bots = "cream_bots.main:run"
+cream_lps_v2 = "cream_bots.builders.lp_fetcher_v2:main"
+cream_lps_v3 = "cream_bots.builders.lp_fetcher_v3:main"
+cream_liquidity = "cream_bots.builders.liquidity_fetcher:main"
+cream_arbs_2pool = "cream_bots.builders.arbs_2pool:main"
+cream_arbs_3pool = "cream_bots.builders.arbs_3pool:main"
