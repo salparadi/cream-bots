@@ -15,8 +15,8 @@ CREAMbots is the collection of python tools to work with liquidity pools on EVM 
 - ujson ([pypi](https://pypi.org/project/degenbot/)): Used to parse JSON. It should be auto installed when you install this.
 
 ## CREAM dependencies
-- CREAM [github](https://github.com/salparadi/cream): If you want to actually react to blockchain transactions/events, you need to install this and run it in a separate process. This isn't a package yet, so you need to `git clone` it and install it as an editable installation in a separate folder.
-- CREAMchains [github](https://github.com/salparadi/cream-chains): You'll need this installed to have access to the chain data (things like factories, routers, rpcs, etc). This isn't a package yet, so you need to `git clone` it and install it as an editable installation in a separate folder.
+- CREAM ([github](https://github.com/salparadi/cream)): If you want to actually react to blockchain transactions/events, you need to install this and run it in a separate process. This isn't a package yet, so you need to `git clone` it and install it as an editable installation in a separate folder.
+- CREAMchains ([github](https://github.com/salparadi/cream-chains)): You'll need this installed to have access to the chain data (things like factories, routers, rpcs, etc). This isn't a package yet, so you need to `git clone` it and install it as an editable installation in a separate folder.
 
 ## Installation
 At the moment the only way to install is from source. Use `git clone` to create a local copy of this repo, then install with `pip install -e /path/to/repo`. This creates an editable installation that can be imported into a script or Python REPL using `import cream_bots`.
@@ -46,8 +46,8 @@ The app expects Redis to be local on port 6379 when you run things. You can alte
 ## Shell Constants
 You'll need to add a few things to your `.bashrc/.zshrc` to ensure the connections can be made. I highly recommend using Alchemy if you don't have a local node. If you do, just configure things for that. See the shell-example.txt file for how to add those. The other CREAM tools rely on Ape for a lot of things so you'll see some ape-specific stuff in various files. The builders don't require Ape, but forthcoming bots will expect that you are managing your accounts with it so you'll need it installed and configured for the chains you are going to use.
 
-## Bootstrapping LP/Liquidity/Arb Paths
-There are a variety of scripts that you can run to pull data from chain and find arbitrage pathways. They are all located in `/builders/` They write `json` files to `/data/` by chain. This will take a LONG time if you are using a public RPC. To that end. I've published a snapshot and will try to keep it updated. You can download it here: [amazon s3](https://salparadi.s3.amazonaws.com/cream_bots_data.tgz). Copy the files into `/data/` and you're good to go.
+## Bootstrapping Liquidity Pool / V3 Liquidity / Arbitrage Paths
+There are a variety of scripts that you can run to pull data from chain and find arbitrage pathways. They are all located in `/builders/` They write `json` files to `/data/` by chain. This will take a LONG time if you are using a public RPC. To that end. I've published a snapshot and will try to keep it updated. You can download a version from 2024-03-22 here: [amazon s3](https://salparadi.s3.amazonaws.com/cream_bots_data.tgz). Extract the files into `/data/` and you're good to go.
 
 ### Liquidity Pools
 The fetchers to retrieve Liquidity Pool (LP) data from chain factories is in `/builders/`. You call the LP fetchers like so:
