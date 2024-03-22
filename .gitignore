@@ -1,6 +1,7 @@
 __pycache__
 *.egg-info/
 .DS_Store
+*.tgz
 
 /src/cream_bots/data/**/*.json
 
