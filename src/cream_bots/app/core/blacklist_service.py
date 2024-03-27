@@ -14,6 +14,7 @@ class BlacklistService:
         self.blacklist_directory = Path(f"data/{self.bot_state.chain_name}")
         self.blacklists = {
             "arbs": set(),
+            "deployers": set(),
             "pools": set(),
             "tokens": set(),
         }
@@ -26,7 +27,7 @@ class BlacklistService:
         )
 
     async def load_blacklists(self):
-        for blacklist_type in ["arbs", "pools", "tokens"]:
+        for blacklist_type in ["arbs", "deployers", "pools", "tokens"]:
             self.blacklists[blacklist_type] = self.load_blacklist(blacklist_type)
 
         self.bot_state.blacklists = self.blacklists

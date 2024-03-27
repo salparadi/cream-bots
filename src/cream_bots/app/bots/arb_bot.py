@@ -11,6 +11,10 @@ import web3
 from degenbot.uniswap.v3_snapshot import (
     UniswapV3LiquiditySnapshot,
 )
+from degenbot.arbitrage.uniswap_lp_cycle import (
+    ArbitrageCalculationResult,
+    UniswapLpCycle,
+)
 
 from cream_chains import chain_data as cream_chains_data
 
@@ -24,9 +28,16 @@ from ...config.logging import logger
 log = logger(__name__)
 
 
+class ArbDetails:
+    def __init__(self, lp_cycle: degenbot.UniswapLpCycle, status: str):
+        self.lp_cycle = lp_cycle
+        self.status = status
+
+
 @dataclass
-class SniperBotState:
+class ArbBotState:
     aggregators: Optional[Dict] = None
+    all_arbs: Dict[str, ArbDetails] = field(default_factory=dict)
     all_pools: degenbot.AllPools = field(default_factory=degenbot.AllPools)
     blacklists: Set[str] = field(default_factory=set)
     chain_id: Optional[int] = None
@@ -47,10 +58,10 @@ class SniperBotState:
     w3: web3.main.Web3 = None
 
 
-class SniperBot:
+class ArbBot:
     def __init__(self, chain_name: str):
         """
-        Initializes a new instance of the SniperBot class.
+        Initializes a new instance of the ArbBot class.
 
         Args:
             chain_name (str): The name of the chain.
@@ -69,7 +80,7 @@ class SniperBot:
         self.exchange_service = ExchangeService(self.bot_state)
         self.pool_service = PoolService(self.bot_state)
 
-    def setup_bot_state(self) -> SniperBotState:
+    def setup_bot_state(self) -> ArbBotState:
         """
         Sets up the state of the bot by initializing various attributes and retrieving chain data.
 
@@ -95,8 +106,9 @@ class SniperBot:
         snapshot_filepath = os.path.join(data_dir, snapshot_filename)
         snapshot = UniswapV3LiquiditySnapshot(snapshot_filepath)
 
-        return SniperBotState(
+        return ArbBotState(
             aggregators=chain_data["aggregators"],
+            all_arbs={},
             all_pools=degenbot.AllPools(chain_id),
             blacklists={},
             chain_id=chain_id,
@@ -126,7 +138,7 @@ class SniperBot:
         await self.exchange_service.add_deployments()
         await self.pool_service.create_pool_managers()
         await self.blacklist_service.load_blacklists()
-        # await self.pool_service.load_pools()
+        await self.pool_service.load_pools()
 
     async def close(self):
         if self.bot_state.redis_client:

@@ -29,7 +29,7 @@ class EventService:
 
         Returns:
             None
-        """ 
+        """
         pubsub = self.redis_client.pubsub()
         await pubsub.subscribe("cream_events")
 
@@ -381,30 +381,30 @@ class EventService:
                 )
 
         _EVENTS = {
-            self.w3.keccak(
-                text="Sync(uint112,uint112)",
-            ).hex(): {
-                "name": "Uniswap V2: SYNC",
-                "process_func": process_sync_event,
-            },
-            self.w3.keccak(
-                text="Mint(address,address,int24,int24,uint128,uint256,uint256)"
-            ).hex(): {
-                "name": "Uniswap V3: MINT",
-                "process_func": process_mint_event,
-            },
-            self.w3.keccak(
-                text="Burn(address,int24,int24,uint128,uint256,uint256)"
-            ).hex(): {
-                "name": "Uniswap V3: BURN",
-                "process_func": process_burn_event,
-            },
-            self.w3.keccak(
-                text="Swap(address,address,int256,int256,uint160,uint128,int24)"
-            ).hex(): {
-                "name": "Uniswap V3: SWAP",
-                "process_func": process_swap_event,
-            },
+            # self.w3.keccak(
+            #     text="Sync(uint112,uint112)",
+            # ).hex(): {
+            #     "name": "Uniswap V2: SYNC",
+            #     "process_func": process_sync_event,
+            # },
+            # self.w3.keccak(
+            #     text="Mint(address,address,int24,int24,uint128,uint256,uint256)"
+            # ).hex(): {
+            #     "name": "Uniswap V3: MINT",
+            #     "process_func": process_mint_event,
+            # },
+            # self.w3.keccak(
+            #     text="Burn(address,int24,int24,uint128,uint256,uint256)"
+            # ).hex(): {
+            #     "name": "Uniswap V3: BURN",
+            #     "process_func": process_burn_event,
+            # },
+            # self.w3.keccak(
+            #     text="Swap(address,address,int256,int256,uint160,uint128,int24)"
+            # ).hex(): {
+            #     "name": "Uniswap V3: SWAP",
+            #     "process_func": process_swap_event,
+            # },
             self.w3.keccak(text="PairCreated(address,address,address,uint256)").hex(): {
                 "name": "Uniswap V2: POOL CREATED",
                 "process_func": process_new_v2_pool_event,
@@ -425,6 +425,7 @@ class EventService:
                         message_data = message.get("data")
                         if message_data:
                             event = ujson.loads(message_data.decode("utf-8"))
+                            event_block = event["params"]["result"]["blockNumber"]
                             topic0: str = event["params"]["result"]["topics"][0]
 
                             try:
@@ -446,7 +447,7 @@ class EventService:
                                 process_func(event)
                                 if VERBOSE_EVENT_PROCESSING:
                                     log.info(
-                                        f"processed {_EVENTS[topic0]['name']} event"
+                                        f"processed {_EVENTS[topic0]['name']} event @ {int(event_block,16)}"
                                     )
                                 continue
 

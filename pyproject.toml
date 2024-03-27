@@ -8,7 +8,7 @@ description = "Bots for EVM chains, using CREAM."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-	"ape",
+	"eth-ape",
 	"degenbot",
 	"networkx",
 	"redis",
