@@ -2,12 +2,18 @@ from eth_typing import HexStr
 from eth_utils.address import to_checksum_address
 import ujson
 
-from degenbot.exchanges.uniswap.dataclasses import (
+from degenbot.exchanges.uniswap.types import (
     UniswapFactoryDeployment,
     UniswapRouterDeployment,
     UniswapTickLensDeployment,
     UniswapV2ExchangeDeployment,
     UniswapV3ExchangeDeployment,
+)
+from degenbot.uniswap.abi import (
+    PANCAKESWAP_V3_POOL_ABI,
+    UNISWAP_V2_POOL_ABI,
+    UNISWAP_V3_POOL_ABI,
+    UNISWAP_V3_TICKLENS_ABI,
 )
 from degenbot.exchanges.uniswap.deployments import (
     FACTORY_DEPLOYMENTS,
@@ -60,7 +66,9 @@ class ExchangeService:
                         chain_id=chain_id,
                         factory=UniswapFactoryDeployment(
                             address=factory_address,
+                            deployer=None,
                             pool_init_hash=HexStr(pool_init_hash),
+                            pool_abi=UNISWAP_V2_POOL_ABI,
                         ),
                     )
                     try:
@@ -81,9 +89,14 @@ class ExchangeService:
                         chain_id=chain_id,
                         factory=UniswapFactoryDeployment(
                             address=factory_address,
+                            deployer=None,
                             pool_init_hash=HexStr(pool_init_hash),
+                            pool_abi=UNISWAP_V3_POOL_ABI,
                         ),
-                        tick_lens=UniswapTickLensDeployment(tick_lens),
+                        tick_lens=UniswapTickLensDeployment(
+                            address=tick_lens,
+                            abi=UNISWAP_V3_TICKLENS_ABI,
+                        ),
                     )
 
                     try:

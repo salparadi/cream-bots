@@ -1,14 +1,24 @@
+import ape
 import asyncio
 import degenbot
 import eth_abi
+import eth_account
 from eth_utils.address import to_checksum_address
+from hexbytes import HexBytes
 from typing import TYPE_CHECKING, Union, Optional
 import ujson
 
+from .anvil_service import AnvilService
+
 from ...config.constants import *
+from ...config import helpers
 from ...config.logging import logger
 
 log = logger(__name__)
+
+VERBOSE_EVENT_PROCESSING = True
+GAS_LIMIT_MULTIPLIER = 1.2
+APE_NETWORK = "base:mainnet-fork:foundry"
 
 
 class EventService:
@@ -16,10 +26,11 @@ class EventService:
         self.bot_state = bot_state
         self.redis_client = self.bot_state.redis_client
         self.w3 = self.bot_state.w3
+        self.anvil_service = AnvilService(bot_state)
 
         log.info(f"EventService initialized with app instance at {id(self.bot_state)}")
 
-    async def process_events(self):
+    async def process_uniswap_events(self):
         """
         Process events from the "cream_events" channel.
 
@@ -228,14 +239,13 @@ class EventService:
                     external_token0_reserves=reserves0,
                     external_token1_reserves=reserves1,
                     silent=not VERBOSE_EVENT_UPDATES,
-                    print_ratios=False,
                     print_reserves=False,
                     update_block=event_block,
                 )
             except degenbot.exceptions.ExternalUpdateError:
                 pass
-            except:
-                log.exception("(process_sync_event)")
+            except Exception as exc:
+                log.exception(f"(process_sync_event): {exc}")
             else:
                 asyncio.create_task(self.bot_state.pools_to_process.put(event_address))
 
@@ -294,8 +304,8 @@ class EventService:
                 )
             except degenbot.exceptions.ExternalUpdateError:
                 pass
-            except:
-                log.exception("(process_swap_event)")
+            except Exception as exc:
+                log.exception(f"(process_swap_event): {exc}")
             else:
                 asyncio.create_task(self.bot_state.pools_to_process.put(event_address))
 
@@ -381,30 +391,30 @@ class EventService:
                 )
 
         _EVENTS = {
-            # self.w3.keccak(
-            #     text="Sync(uint112,uint112)",
-            # ).hex(): {
-            #     "name": "Uniswap V2: SYNC",
-            #     "process_func": process_sync_event,
-            # },
-            # self.w3.keccak(
-            #     text="Mint(address,address,int24,int24,uint128,uint256,uint256)"
-            # ).hex(): {
-            #     "name": "Uniswap V3: MINT",
-            #     "process_func": process_mint_event,
-            # },
-            # self.w3.keccak(
-            #     text="Burn(address,int24,int24,uint128,uint256,uint256)"
-            # ).hex(): {
-            #     "name": "Uniswap V3: BURN",
-            #     "process_func": process_burn_event,
-            # },
-            # self.w3.keccak(
-            #     text="Swap(address,address,int256,int256,uint160,uint128,int24)"
-            # ).hex(): {
-            #     "name": "Uniswap V3: SWAP",
-            #     "process_func": process_swap_event,
-            # },
+            self.w3.keccak(
+                text="Sync(uint112,uint112)",
+            ).hex(): {
+                "name": "Uniswap V2: SYNC",
+                "process_func": process_sync_event,
+            },
+            self.w3.keccak(
+                text="Mint(address,address,int24,int24,uint128,uint256,uint256)"
+            ).hex(): {
+                "name": "Uniswap V3: MINT",
+                "process_func": process_mint_event,
+            },
+            self.w3.keccak(
+                text="Burn(address,int24,int24,uint128,uint256,uint256)"
+            ).hex(): {
+                "name": "Uniswap V3: BURN",
+                "process_func": process_burn_event,
+            },
+            self.w3.keccak(
+                text="Swap(address,address,int256,int256,uint160,uint128,int24)"
+            ).hex(): {
+                "name": "Uniswap V3: SWAP",
+                "process_func": process_swap_event,
+            },
             self.w3.keccak(text="PairCreated(address,address,address,uint256)").hex(): {
                 "name": "Uniswap V2: POOL CREATED",
                 "process_func": process_new_v2_pool_event,
@@ -422,6 +432,8 @@ class EventService:
             try:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
+                        print('pubsub event')
+                        
                         message_data = message.get("data")
                         if message_data:
                             event = ujson.loads(message_data.decode("utf-8"))
@@ -438,7 +450,7 @@ class EventService:
                                 continue
                             except Exception as exc:
                                 log.exception(
-                                    f"(process_events) Unexpected error: {exc}"
+                                    f"(process_uniswap_events) Unexpected error: {exc}"
                                 )
                                 continue
                             else:
@@ -454,6 +466,6 @@ class EventService:
             except asyncio.CancelledError:
                 return
             except Exception as exc:
-                log.exception(f"(process_events) Redis subscription error: {exc}")
-                log.info("process_events reconnecting...")
+                log.exception(f"(process_uniswap_events) Redis subscription error: {exc}")
+                log.info("process_uniswap_events reconnecting...")
                 await asyncio.sleep(1)  # wait a bit before reconnecting

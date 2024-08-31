@@ -140,4 +140,4 @@ class SniperBot:
         Runs the bot by starting the event loop and running the main loop.
         """
         await self.bootstrap()
-        await self.event_service.process_events()
+        await self.event_service.process_uniswap_events()

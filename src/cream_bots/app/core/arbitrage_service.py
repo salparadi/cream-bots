@@ -29,11 +29,19 @@ class ArbDetails:
 
 
 class ArbitrageService:
-    def __init__(self):
-        self.websocket_uri = self.app_state.redis_client.get("websocket_uri")
-
+    def __init__(self, bot_state):
+        self.bot_state = bot_state
+        self.w3 = self.bot_state.w3
+        
         log.info(
-            f"ArbitrageService initialized with app instance at {id(self.app_state)}"
+            f"ArbitrageService initialized with app instance at {id(self.bot_state)}"
+        )
+    
+    async def process_onchain_arbs(
+        self,
+    ):
+        log.info(
+            f"(ArbitrageService:process_onchain_arbs) {self.bot_state.pools_to_process}"
         )
 
     async def process_backrun_arbs(
