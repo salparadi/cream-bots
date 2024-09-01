@@ -257,35 +257,41 @@ class PoolService:
             f"Created {len(self.bot_state.all_pools)} liquidity pool helpers in {time.perf_counter() - start:.2f}s"
         )
 
-        # degenbot_weth = degenbot.Erc20Token(chain_data.get("wrapped_token"))
+        degenbot_weth = degenbot.Erc20Token(chain_data.get("wrapped_token"))
 
-        # for arb in tqdm(arb_paths):
-        #     await asyncio.sleep(0)
-        #     # ignore arbs on the blacklist
-        #     if (arb_id := arb.get("id")) in self.bot_state.blacklists["arbs"]:
-        #         continue
+        blacklisted_arbs = self.bot_state.blacklists["arbs"]
+        all_pools = self.bot_state.all_pools
 
-        #     # ignore arbs where pool helpers are not available for all pools in the path
-        #     if len(
-        #         swap_pools := [
-        #             pool_obj
-        #             for pool_address in arb["path"]
-        #             if (pool_obj := self.bot_state.all_pools.get(pool_address))
-        #         ]
-        #     ) != len(arb["path"]):
-        #         continue
+        for arb in tqdm(arb_paths):
+            await asyncio.sleep(0)
+            arb_id = arb.get("id")
+            
+            # Skip blacklisted arbs
+            if arb_id in blacklisted_arbs:
+                continue
 
-        #     self.bot_state.all_arbs[arb_id] = ArbDetails(
-        #         lp_cycle=degenbot.UniswapLpCycle(
-        #             input_token=degenbot_weth,
-        #             swap_pools=swap_pools,
-        #             max_input=MAX_INPUT,
-        #             id=arb_id,
-        #         ),
-        #         status="load",  # Setting the status as "load"
-        #     )
+            # Get pool objects for the arb path
+            swap_pools = []
+            for pool_address in arb["path"]:
+                pool_obj = all_pools.get(pool_address)
+                if not pool_obj:
+                    break
+                swap_pools.append(pool_obj)
 
-        # log.info(f"Built {len(self.bot_state.all_arbs)} cycle arb helpers")
-        # log.info("Arb loading complete")
+            # Skip if not all pools are available
+            if len(swap_pools) != len(arb["path"]):
+                continue
+
+            self.bot_state.all_arbs[arb_id] = ArbDetails(
+                lp_cycle=degenbot.UniswapLpCycle(
+                    input_token=degenbot_weth,
+                    swap_pools=swap_pools,
+                    max_input=MAX_INPUT,
+                    id=arb_id,
+                ),
+                status="load",
+            )
+        log.info(f"Built {len(self.bot_state.all_arbs)} cycle arb helpers")
+        log.info("Arb loading complete")
 
         self.bot_state.pools_loaded = True

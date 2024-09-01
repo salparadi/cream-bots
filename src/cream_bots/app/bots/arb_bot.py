@@ -156,4 +156,4 @@ class ArbBot:
         """
         await self.bootstrap()
         await self.event_service.process_uniswap_events()
-        await self.arbitrage_service.process_onchain_arbs()
+        await self.arbitrage_service.find_onchain_arbs()
