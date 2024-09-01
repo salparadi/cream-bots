@@ -89,7 +89,7 @@ class ArbitrageService:
                 
                 pool_address = await self.bot_state.pools_to_process.get()
                 
-                affected_arbs = await self.find_affected_arbs(self.bot_state.all_arbs, pool_address)
+                affected_arbs = await self.find_affected_arbs(pool_address)
                             
                 if len(affected_arbs) > 0:
                                     
