@@ -44,6 +44,13 @@ class EventService:
         pubsub = self.redis_client.pubsub()
         await pubsub.subscribe("cream_events")
 
+        async def check_queue_size():
+            while True:
+                log.info(f"Current pools_to_process queue size: {self.bot_state.pools_to_process.qsize()}")
+                await asyncio.sleep(60)  # Check every minute
+
+        asyncio.create_task(check_queue_size())
+
         def process_burn_event(message: dict):
             event_address = to_checksum_address(message["params"]["result"]["address"])
             event_block = int(message["params"]["result"]["blockNumber"], 16)

@@ -186,7 +186,7 @@ class PoolService:
             await asyncio.sleep(self.average_blocktime)
 
         # TEST trim to make the bot load fast.
-        #unique_pool_addresses = set(list(unique_pool_addresses)[:10])
+        unique_pool_addresses = set(list(unique_pool_addresses)[:100])
 
         # Add the liquidity pools to the pool managers
         for pool_address in tqdm(unique_pool_addresses):
