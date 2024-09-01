@@ -119,6 +119,8 @@ class ArbitrageService:
             None
         """
         num_arbs = len(arb_helpers)
+
+        logger.info(f"(process_onchain_arbs) Number of arbs: {num_arbs}")
         
         # No arbs affected, quit
         if num_arbs == 0:
@@ -227,7 +229,7 @@ class ArbitrageService:
             # Determine the bribe amount
             arb_details = self.bot_state.all_arbs.get(arb_result.id)
             
-            #logger.info('')
+            logger.info(f'Arb found {arb_result.id}')
         
             # await execute_arb(
             #     all_arbs=all_arbs,
