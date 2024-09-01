@@ -432,7 +432,6 @@ class EventService:
             try:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
-                        print('pubsub event')
                         
                         message_data = message.get("data")
                         if message_data:
