@@ -173,8 +173,6 @@ class PoolService:
         )
         log.info(f"Found {len(unique_tokens)} unique tokens")
 
-        start = time.perf_counter()
-
         # Sleep if the event watcher is not running
         while not self.first_event:
             await asyncio.sleep(self.average_blocktime)
@@ -191,10 +189,8 @@ class PoolService:
         all_pools = self.bot_state.all_pools
 
         for arb in tqdm(arb_paths):
-            await asyncio.sleep(0)
+
             arb_id = arb.get("id")
-            
-            # Skip blacklisted arbs
             if arb_id in blacklisted_arbs:
                 continue
 
@@ -273,7 +269,9 @@ class PoolService:
         total_pools = len(self.unique_pool_addresses)
         log.info(f"Starting to create {total_pools} pool helpers")
 
-        pool_helpers = []
+        v2_pools = 0
+        v3_pools = 0
+
         with tqdm(total=total_pools, desc="Creating pool helpers", unit="pool") as pbar:
             for pool_address in self.unique_pool_addresses:
                 helper = await self.create_pool_helper(
@@ -284,18 +282,14 @@ class PoolService:
                     self.bot_state.chain_data["factories"]["v3"],
                     self.first_event
                 )
-                pool_helpers.append(helper)
+                if helper is not None:
+                    if isinstance(helper, degenbot.V3LiquidityPool):
+                        v3_pools += 1
+                    else:
+                        v2_pools += 1
                 pbar.update(1)
 
-        # Filter out None values and add to all_pools
-        self.bot_state.all_pools.update({
-            addr: helper for addr, helper in zip(self.unique_pool_addresses, pool_helpers)
-            if helper is not None
-        })
-
-        # Perform type checking and assertions
-        v3_pools = sum(1 for pool_helper in self.bot_state.all_pools.values() if isinstance(pool_helper, degenbot.V3LiquidityPool))
-
         duration = time.perf_counter() - start
-        log.info(f"Created {len(self.bot_state.all_pools)} liquidity pool helpers in {duration:.2f}s")
-        log.info(f"V3 pools: {v3_pools}, V2 pools: {len(self.bot_state.all_pools) - v3_pools}")
+        total_pools_created = v2_pools + v3_pools
+        log.info(f"Created {total_pools_created} liquidity pool helpers in {duration:.2f}s")
+        log.info(f"V3 pools: {v3_pools}, V2 pools: {v2_pools}")
