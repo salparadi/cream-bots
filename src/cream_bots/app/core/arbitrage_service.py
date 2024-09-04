@@ -85,11 +85,11 @@ class ArbitrageService:
             try:
                 pool_address = await self.bot_state.pools_to_process.get()
 
-                logger.info(f"(find_onchain_arbs) pool_address: {pool_address}")
+                log.info(f"(find_onchain_arbs) pool_address: {pool_address}")
                 
                 affected_arbs = await self.find_affected_arbs(pool_address)
                 
-                logger.info(f"(find_onchain_arbs) Number of arbs: {len(affected_arbs)}")
+                log.info(f"(find_onchain_arbs) Number of arbs: {len(affected_arbs)}")
                             
                 if affected_arbs:
                     asyncio.create_task(
@@ -123,7 +123,7 @@ class ArbitrageService:
         """
         num_arbs = len(arb_helpers)
 
-        logger.info(f"(process_onchain_arbs) Number of arbs: {num_arbs}")
+        log.info(f"(process_onchain_arbs) Number of arbs: {num_arbs}")
         
         # No arbs affected, quit
         if num_arbs == 0:
@@ -141,7 +141,7 @@ class ArbitrageService:
                 pass
                 #logger.info(f"(process_onchain_arbs) (bot.exceptions.ArbitrageError): {exc}")
             except Exception as exc:
-                logger.info(f"(process_onchain_arbs) Unexpected exception: {type(exc).__name__} - {exc}")
+                log.info(f"(process_onchain_arbs) Unexpected exception: {type(exc).__name__} - {exc}")
         
         
         calculation_results: List[ArbitrageCalculationResult] = []
@@ -154,7 +154,7 @@ class ArbitrageService:
                 pass
                 #logger.info(f"(process_onchain_arbs) (bot.exceptions.ArbitrageError): {exc}")
             except Exception as exc:  # Catch all exceptions
-                logger.info(f"(process_onchain_arbs) Unexpected exception: {type(exc).__name__} - {exc}")
+                log.info(f"(process_onchain_arbs) Unexpected exception: {type(exc).__name__} - {exc}")
             
         # Show the calculation results
         '''
@@ -222,7 +222,7 @@ class ArbitrageService:
             if not all_profitable_arbs:
                 break
         
-        logger.info(
+        log.info(
             f"Reduced {len(arb_helpers)} arbs to {len(arbs_without_overlap)}"
         )
         
@@ -232,7 +232,7 @@ class ArbitrageService:
             # Determine the bribe amount
             arb_details = self.bot_state.all_arbs.get(arb_result.id)
             
-            logger.info(f'Arb found {arb_result.id}')
+            log.info(f'Arb found {arb_result.id}')
         
             # await execute_arb(
             #     all_arbs=all_arbs,
