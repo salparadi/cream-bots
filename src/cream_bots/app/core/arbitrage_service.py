@@ -85,11 +85,11 @@ class ArbitrageService:
             try:
                 pool_address = await self.bot_state.pools_to_process.get()
 
-                log.info(f"(find_onchain_arbs) pool_address: {pool_address}")
+                #log.info(f"(find_onchain_arbs) pool_address: {pool_address}")
                 
                 affected_arbs = await self.find_affected_arbs(pool_address)
                 
-                log.info(f"(find_onchain_arbs) Number of arbs: {len(affected_arbs)}")
+                #log.info(f"(find_onchain_arbs) Number of arbs: {len(affected_arbs)}")
                             
                 if affected_arbs:
                     asyncio.create_task(
@@ -231,6 +231,10 @@ class ArbitrageService:
             
             # Determine the bribe amount
             arb_details = self.bot_state.all_arbs.get(arb_result.id)
+
+            print(arb_details)
+            print()
+            print(arb_result)
             
             log.info(f'Arb found {arb_result.id}')
         
