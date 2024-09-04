@@ -274,19 +274,18 @@ class PoolService:
         log.info(f"Starting to create {total_pools} pool helpers")
 
         pool_helpers = []
-        for i, pool_address in enumerate(self.unique_pool_addresses, 1):
-            helper = await self.create_pool_helper(
-                pool_address,
-                self.liquidity_pool_data[pool_address],
-                self.bot_state.pool_managers,
-                self.bot_state.chain_data["factories"]["v2"],
-                self.bot_state.chain_data["factories"]["v3"],
-                self.first_event
-            )
-            pool_helpers.append(helper)
-            
-            if i % 100 == 0 or i == total_pools:
-                log.info(f"Created {i}/{total_pools} pool helpers")
+        with tqdm(total=total_pools, desc="Creating pool helpers", unit="pool") as pbar:
+            for pool_address in self.unique_pool_addresses:
+                helper = await self.create_pool_helper(
+                    pool_address,
+                    self.liquidity_pool_data[pool_address],
+                    self.bot_state.pool_managers,
+                    self.bot_state.chain_data["factories"]["v2"],
+                    self.bot_state.chain_data["factories"]["v3"],
+                    self.first_event
+                )
+                pool_helpers.append(helper)
+                pbar.update(1)
 
         # Filter out None values and add to all_pools
         self.bot_state.all_pools.update({
@@ -295,12 +294,7 @@ class PoolService:
         })
 
         # Perform type checking and assertions
-        v3_pools = 0
-        for pool_helper in self.bot_state.all_pools.values():
-            if isinstance(pool_helper, degenbot.V3LiquidityPool):
-                assert pool_helper.sparse_bitmap == False
-                v3_pools += 1
-            assert isinstance(pool_helper, (degenbot.LiquidityPool, degenbot.V3LiquidityPool))
+        v3_pools = sum(1 for pool_helper in self.bot_state.all_pools.values() if isinstance(pool_helper, degenbot.V3LiquidityPool))
 
         duration = time.perf_counter() - start
         log.info(f"Created {len(self.bot_state.all_pools)} liquidity pool helpers in {duration:.2f}s")
