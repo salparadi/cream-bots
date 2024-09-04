@@ -236,7 +236,7 @@ class ArbitrageService:
             print()
             print(arb_result)
             
-            log.info(f'Arb found {arb_result.id}')
+            log.info(f'Profitable Arb found {arb_result.id}')
         
             # await execute_arb(
             #     all_arbs=all_arbs,
