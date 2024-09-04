@@ -185,75 +185,6 @@ class PoolService:
         # Create pool helpers
         await self.create_pool_helpers()
 
-        # Add the liquidity pools to the pool managers
-        # for pool_address in tqdm(self.unique_pool_addresses):
-        #     await asyncio.sleep(0)
-
-        #     pool_type: str = self.liquidity_pool_data[pool_address]["type"]
-        #     pool_exchange: str = self.liquidity_pool_data[pool_address]["exchange"]
-
-        #     pool_helper: Optional[
-        #         Union[
-        #             degenbot.LiquidityPool,
-        #             degenbot.V3LiquidityPool,
-        #         ]
-        #     ] = None
-
-        #     if pool_type == "UniswapV2":
-        #         try:
-        #             pool_manager = pool_managers[
-        #                 v2_factories[pool_exchange]["factory_address"]
-        #             ]
-
-        #             pool_helper = pool_manager.get_pool(
-        #                 pool_address=pool_address,
-        #                 silent=True,
-        #                 update_method="external",
-        #                 state_block=self.first_event - 1,
-        #             )
-
-        #         except degenbot.exceptions.ManagerError as exc:
-        #             log.error(exc)
-        #             continue
-
-        #     elif pool_type == "UniswapV3":
-        #         try:
-        #             pool_manager = pool_managers[
-        #                 v3_factories[pool_exchange]["factory_address"]
-        #             ]
-
-        #             pool_helper = pool_manager.get_pool(
-        #                 pool_address=pool_address,
-        #                 silent=True,
-        #                 state_block=self.first_event - 1,
-        #                 v3liquiditypool_kwargs={
-        #                     "fee": self.liquidity_pool_data[pool_address]["fee"]
-        #                 },
-        #             )
-
-        #         except degenbot.exceptions.ManagerError as exc:
-        #             log.error(exc)
-        #             continue
-
-        #     else:
-        #         raise Exception(f"Could not identify pool type! {pool_type=}")
-
-        #     if isinstance(pool_helper, degenbot.V3LiquidityPool):
-        #         assert pool_helper.sparse_bitmap == False
-
-        #     if TYPE_CHECKING:
-        #         assert isinstance(
-        #             pool_helper,
-        #             (
-        #                 degenbot.LiquidityPool,
-        #                 degenbot.V3LiquidityPool,
-        #             ),
-        #         )
-
-        # log.info(
-        #     f"Created {len(self.bot_state.all_pools)} liquidity pool helpers in {time.perf_counter() - start:.2f}s"
-        # )
-
         degenbot_weth = degenbot.Erc20Token(chain_data.get("wrapped_token"))
 
         blacklisted_arbs = self.bot_state.blacklists["arbs"]
@@ -292,6 +223,7 @@ class PoolService:
         log.info("Arb loading complete")
 
         self.bot_state.pools_loaded = True
+
 
     async def create_pool_helper(
         self,
@@ -335,6 +267,7 @@ class PoolService:
             log.error(f"Could not identify pool type! {pool_type=}")
             return None
     
+
     async def create_pool_helpers(self):
         start = time.perf_counter()
 
