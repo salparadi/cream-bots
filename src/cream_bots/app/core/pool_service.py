@@ -186,7 +186,7 @@ class PoolService:
             await asyncio.sleep(self.average_blocktime)
 
         # TEST trim to make the bot load fast.
-        unique_pool_addresses = set(list(unique_pool_addresses)[:100])
+        # unique_pool_addresses = set(list(unique_pool_addresses)[:100])
 
         # Add the liquidity pools to the pool managers
         for pool_address in tqdm(unique_pool_addresses):
@@ -241,8 +241,8 @@ class PoolService:
             else:
                 raise Exception(f"Could not identify pool type! {pool_type=}")
 
-            #if isinstance(pool_helper, degenbot.V3LiquidityPool):
-                #assert pool_helper._sparse_bitmap == False
+            if isinstance(pool_helper, degenbot.V3LiquidityPool):
+                assert pool_helper.sparse_bitmap == False
 
             if TYPE_CHECKING:
                 assert isinstance(
