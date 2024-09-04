@@ -1,3 +1,4 @@
+import asyncio
 from asyncio import Queue
 from aiohttp import ClientSession
 from concurrent.futures import ProcessPoolExecutor
@@ -155,7 +156,7 @@ class ArbBot:
         Runs the bot by starting the event loop and running the main loop.
         """
         await self.bootstrap()
-        
+
         await asyncio.gather(
             self.event_service.process_uniswap_events(),
             self.arbitrage_service.find_onchain_arbs()
