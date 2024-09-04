@@ -69,9 +69,7 @@ class ArbitrageService:
         return affected_arbs
     
 
-    async def find_onchain_arbs(
-        self
-    ):
+    async def find_onchain_arbs(self):
         """
         Continuously finds and processes on-chain arbitrage opportunities.
 
@@ -84,23 +82,28 @@ class ArbitrageService:
             None
         """
         while True:
-            
-            if self.bot_state.pools_to_process:
-                
+            try:
                 pool_address = await self.bot_state.pools_to_process.get()
+
+                logger.info(f"(find_onchain_arbs) pool_address: {pool_address}")
                 
                 affected_arbs = await self.find_affected_arbs(pool_address)
+                
+                logger.info(f"(find_onchain_arbs) Number of arbs: {len(affected_arbs)}")
                             
-                if len(affected_arbs) > 0:
-                                    
+                if affected_arbs:
                     asyncio.create_task(
                         self.process_onchain_arbs(
                             arb_helpers=affected_arbs,
                         )
                     )
                 
+            except Exception as e:
+                log.error(f"Error in find_onchain_arbs: {e}")
+            finally:
                 self.bot_state.pools_to_process.task_done()
     
+
     async def process_onchain_arbs(
         self,
         arb_helpers: List[degenbot.UniswapLpCycle],
