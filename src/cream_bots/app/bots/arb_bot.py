@@ -155,5 +155,8 @@ class ArbBot:
         Runs the bot by starting the event loop and running the main loop.
         """
         await self.bootstrap()
-        await self.event_service.process_uniswap_events()
-        await self.arbitrage_service.find_onchain_arbs()
+        
+        await asyncio.gather(
+            self.event_service.process_uniswap_events(),
+            self.arbitrage_service.find_onchain_arbs()
+        )
