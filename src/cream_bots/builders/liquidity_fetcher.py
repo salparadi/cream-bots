@@ -250,7 +250,7 @@ def main():
 
             lp_helper._fee = lp_data[pool_address]["fee"]
 
-            lp_helper._tick_spacing = TICKSPACING_BY_FEE[lp_helper._fee]
+            lp_helper.tick_spacing = TICKSPACING_BY_FEE[lp_helper._fee]
 
             sorted_liquidity_events = sorted(
                 liquidity_events[pool_address],
