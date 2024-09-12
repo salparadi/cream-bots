@@ -1,95 +1,55 @@
+import asyncio
 from aiohttp import ClientSession
-from dataclasses import dataclass
 import degenbot
-import os
 import redis.asyncio as redis
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import Dict, Optional, Set
 import web3
 
 from cream_chains import chain_data as cream_chains_data
 
-from ..core.event_service import EventService
+from ..core.transaction_service import TransactionService
+from ..core.bootstrap_service import BootstrapService
 from ...config.constants import REDIS_HOST, REDIS_PORT
 from ...config.logging import logger
 
 log = logger(__name__)
 
-
-@dataclass
 class CallbackBotState:
-    aggregators: Optional[Dict] = None
-    chain_id: Optional[int] = None
-    chain_data: Optional[Dict] = None
-    chain_name: Optional[str] = None
-    http_session: Optional[ClientSession] = None
-    http_uri: Optional[str] = None
-    live: bool = False
-    node: Optional[str] = None
-    redis_client: redis.Redis = None
-    routers: Optional[Dict] = None
-    websocket_uri: Optional[str] = None
-    w3: web3.main.Web3 = None
+    def __init__(self, chain_name: str, chain_data: Dict):
+        self.aggregators: Optional[Dict] = chain_data.get("aggregators")
+        self.chain_id: int = chain_data["chain_id"]
+        self.chain_data: Dict = chain_data
+        self.chain_name: str = chain_name
+        self.failed_transactions: Set[str] = set()
+        self.http_session: ClientSession = ClientSession()
+        self.http_uri: str = chain_data["http_uri"]
+        self.live: bool = False
+        self.node: str = chain_data["node"]
+        self.redis_client: redis.Redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+        self.routers: Optional[Dict] = chain_data.get("routers")
+        self.websocket_uri: str = chain_data["websocket_uri"]
+        self.w3: web3.Web3 = web3.Web3(web3.WebsocketProvider(chain_data["websocket_uri"]))
 
+        # Attributes from external app_state
+        self.average_blocktime: Optional[float] = None
+        self.base_fee_last: Optional[int] = None
+        self.base_fee_next: Optional[int] = None
+        self.first_block: Optional[int] = None
+        self.first_event: Optional[int] = None
+        self.newest_block: Optional[int] = None
+        self.newest_block_timestamp: Optional[int] = None
+        self.watching_blocks: bool = False
+        self.watching_events: bool = False
 
 class CallbackBot:
     def __init__(self, chain_name: str):
-        """
-        Initializes a new instance of the SniperBot class.
-
-        Args:
-            chain_name (str): The name of the chain.
-
-        Attributes:
-            chain_name (str): The name of the chain.
-            bot_state (BotState): The state of the bot.
-            blacklist_service (BlacklistService): The blacklist service used by the bot.
-            exchange_service (ExchangeService): The exchange service used by the bot.
-            pool_service (PoolService): The pool service used by the bot.
-        """
         self.chain_name = chain_name
-        self.bot_state = self.setup_bot_state()
-        self.event_service = EventService(self.bot_state)
-
-    def setup_bot_state(self) -> CallbackBotState:
-        """
-        Sets up the state of the bot by initializing various attributes and retrieving chain data.
-
-        Returns:
-            BotState: The initialized state of the bot.
-
-        Raises:
-            ValueError: If no chain data is found for the specified chain name.
-        """
         chain_data = cream_chains_data.get(self.chain_name)
-        chain_id = chain_data["chain_id"]
-        w3 = web3.Web3(web3.WebsocketProvider(chain_data["websocket_uri"]))
-        degenbot.set_web3(w3)
-
         if not chain_data:
             raise ValueError(f"No chain data found for {self.chain_name}")
-
-        return CallbackBotState(
-            aggregators=chain_data["aggregators"],
-            chain_id=chain_id,
-            chain_data=chain_data,
-            chain_name=self.chain_name,
-            http_session=ClientSession(),
-            http_uri=chain_data["http_uri"],
-            live=True,
-            node=chain_data["node"],
-            redis_client=redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0),
-            websocket_uri=chain_data["websocket_uri"],
-            w3=w3,
-        )
-
-    async def bootstrap(self):
-        """
-        Initializes the bot by adding deployments to the exchange service
-        and creating pool managers for the bot state.
-
-        This method should be called before starting the bot.
-        """
-        pass
+        self.bot_state = CallbackBotState(chain_name, chain_data)
+        self.transaction_service = TransactionService(self.bot_state)
+        self.bootstrap_service = BootstrapService(self.bot_state)
 
     async def close(self):
         if self.bot_state.redis_client:
@@ -101,6 +61,14 @@ class CallbackBot:
     async def run(self):
         """
         Runs the bot by starting the event loop and running the main loop.
-        """
-        await self.bootstrap()
-        await self.event_service.process_aggregator_callback_events()
+        """        
+        async def debug_print_state():
+            while True:
+                log.info(f"Current bot state: newest_block={self.bot_state.newest_block}, live={self.bot_state.live}")
+                await asyncio.sleep(10)  # Print every 10 seconds
+
+        await asyncio.gather(
+            self.bootstrap_service.start(),
+            self.transaction_service.process_pending_transactions(),
+            #debug_print_state()
+        )

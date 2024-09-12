@@ -272,7 +272,6 @@ def main():
                             tick_upper,
                         ),
                     ),
-                    force=True,
                 )
 
             try:

@@ -2,8 +2,8 @@ import asyncio
 import degenbot
 from eth_utils.address import to_checksum_address
 from hexbytes import HexBytes
-from typing import TYPE_CHECKING, Dict, List, Set
-
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
+import ujson
 import web3
 
 from degenbot.arbitrage.uniswap_lp_cycle import (
@@ -17,247 +17,158 @@ from degenbot.uniswap.v3_snapshot import (
     UniswapV3LiquiditySnapshot,
 )
 
-from ...config.constants import constants
+from .anvil_service import AnvilService
+
+from ...config.constants import *
 from ...config.logging import logger
 
 log = logger(__name__)
 
 
 class TransactionService:
-    def __init__(self):
+    def __init__(self, bot_state):
+        self.bot_state = bot_state
+        self.redis_client = self.bot_state.redis_client
         self.w3 = self.bot_state.w3
+        self.anvil_service = AnvilService(bot_state)
+        
         log.info(
             f"TransactionService initialized with app instance at {id(self.bot_state)}"
         )
+    
+    async def process_pending_transactions(self):
 
-    async def clean_transaction(self, transaction):
+        while not self.bot_state.live:
+            await asyncio.sleep(1)
+            log.info("Waiting for bot_state.live to become True...")
+
+        log.info("Bot state is live. Starting to process pending transactions.")
+
+        pubsub = self.redis_client.pubsub()
+        await pubsub.subscribe("cream_pending_transactions")
+        
+        while True:
+            try:
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        transaction_data = message["data"]
+                        transaction_dict = ujson.loads(transaction_data.decode('utf-8'))
+
+                        # Skip if the transaction is already in failed_transactions
+                        if transaction_dict['hash'] in self.bot_state.failed_transactions:
+                            if VERBOSE_TRANSACTION_UPDATES:
+                                log.info(f"Skipping previously failed transaction: {transaction_dict['hash']}")
+                            continue
+                        
+                        if VERBOSE_TRANSACTION_UPDATES:
+                            log.info(f"Received transaction: {transaction_dict['hash']}")
+                        
+                        cleaned_transaction = await self.clean_transaction(transaction_dict)
+                        
+                        if cleaned_transaction:
+                            if VERBOSE_TRANSACTION_UPDATES:
+                                log.info(f"Cleaned transaction: {cleaned_transaction['hash']}")
+                            # Further processing can be added here
+                            if cleaned_transaction['to'] is None:
+                                if VERBOSE_TRANSACTION_UPDATES:
+                                    log.info("Contract deployment transaction, skipping further processing")
+                            elif cleaned_transaction['to'] in self.bot_state.routers:
+                                await self.process_router_transaction(cleaned_transaction)
+                            elif cleaned_transaction['to'] in self.bot_state.aggregators:
+                                await self.process_aggregator_transaction(cleaned_transaction)
+                            else:
+                                if VERBOSE_TRANSACTION_UPDATES:
+                                    log.info("Transaction not relevant for further processing")
+                        else:
+                            if VERBOSE_TRANSACTION_UPDATES:
+                                log.info(f"Transaction failed cleaning: {transaction_dict['hash']}")
+            
+            except asyncio.CancelledError:
+                log.info("process_pending_transactions cancelled")
+                return
+            except Exception as exc:
+                log.exception(f"Error in process_pending_transactions: {exc}")
+                await asyncio.sleep(1)  # Wait before reconnecting
+
+    async def clean_transaction(self, transaction: Dict) -> Optional[Dict]:
         w3 = self.bot_state.w3
 
-        # Clean up the transaction and simulate it
         try:
             params_to_keep = [
-                "from",
-                "to",
-                "gas",
-                "maxFeePerGas",
-                "maxPriorityFeePerGas",
-                "gasPrice",
-                "value",
-                "data",
-                "input",
-                "nonce",
-                "type",
+                "from", "to", "gas", "maxFeePerGas", "maxPriorityFeePerGas",
+                "gasPrice", "value", "data", "input", "nonce", "type", "hash"
             ]
 
-            if transaction["type"] in (0, "0x0"):
+            transaction_type = int(transaction["type"], 16)
+            
+            if transaction_type == 0:
                 params_to_keep.remove("maxFeePerGas")
                 params_to_keep.remove("maxPriorityFeePerGas")
-            elif transaction["type"] in (1, "0x1"):
+            elif transaction_type == 1:
                 params_to_keep.remove("maxFeePerGas")
                 params_to_keep.remove("maxPriorityFeePerGas")
-            elif transaction["type"] in (2, "0x2", 3, "0x3"):
+            elif transaction_type in (2, 3):
                 params_to_keep.remove("gasPrice")
             else:
-                log.info(f'Unknown TX type: {transaction["type"]}')
-                log.info(f"{transaction=}")
-                return
+                log.warning(f'Unknown transaction type: {transaction_type}')
+                self.bot_state.failed_transactions.add(transaction["hash"])
+                return None
 
-            transaction_to_test = {
-                k: v for k, v in transaction.items() if k in params_to_keep
-            }
+            transaction_to_test = {k: v for k, v in transaction.items() if k in params_to_keep}
 
-            # Convert the "from" address to a checksummed version
-            if "from" in transaction_to_test and transaction_to_test["from"]:
-                transaction_to_test["from"] = to_checksum_address(
-                    transaction_to_test["from"]
-                )
+            # Convert addresses to checksummed versions
+            for addr_field in ("from", "to"):
+                if addr_field in transaction_to_test and transaction_to_test[addr_field]:
+                    transaction_to_test[addr_field] = to_checksum_address(transaction_to_test[addr_field])
 
-            # Convert the "to" address to a checksummed version
-            if "to" in transaction_to_test and transaction_to_test["to"]:
-                transaction_to_test["to"] = to_checksum_address(
-                    transaction_to_test["to"]
-                )
-
+            # Simulate the transaction
             w3.eth.call(
                 transaction=transaction_to_test,
                 block_identifier="latest",
             )
+
+            return transaction_to_test
+
         except web3.exceptions.ContractLogicError as exc:
-            self.failed_transactions.add(transaction["hash"])
-            # log.error(f"(process_pending_transactions) (web3.exceptions.ContractLogicError): {exc}")
-            return
+            if VERBOSE_TRANSACTION_UPDATES:
+                log.error(f"Contract logic error in transaction {transaction['hash']}: {exc}")
         except ValueError as exc:
-            self.failed_transactions.add(transaction["hash"])
-            # log.error(f"(process_pending_transactions) (ValueError): {exc}")
-            return
+            if VERBOSE_TRANSACTION_UPDATES:
+                log.error(f"Value error in transaction {transaction['hash']}: {exc}")
         except Exception as exc:
-            self.failed_transactions.add(transaction["hash"])
-            # log.error(f"(process_pending_transactions) ({type(exc)}): {exc}")
-            return
-
-        # If it's a contract deployment, continue
-        if transaction["to"] == None:
-            return
-
-        return transaction
+            if VERBOSE_TRANSACTION_UPDATES: 
+                log.error(f"Unexpected error in transaction {transaction['hash']}: {exc}")
+        
+        self.bot_state.failed_transactions.add(transaction["hash"])
+        return None
 
     async def process_router_transaction(self, transaction):
-        w3 = self.bot_state.w3
+        log.info("~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~")
+        log.info("~ ROUTER TRANSACTION")
+        log.info("~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~")
 
-        try:
-            func_object, func_parameters = w3.eth.contract(
-                address=transaction["to"],
-                abi=self.routers[transaction["to"]]["abi"],
-            ).decode_function_input(transaction["data"])
-        except ValueError as exc:
-            log.error(
-                f"(process_pending_transactions) (decode_function_input) (ValueError): {exc}"
-            )
-            return
-        except Exception as exc:
-            log.error(
-                f"(process_pending_transactions) (decode_function_input) ({type(exc)}): {exc}"
-            )
-            return
-
-        # Test transaction and create helper if it's valid
-        try:
-            log.info("~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~")
-            log.info("~ ROUTER TRANSACTION")
-            log.info("~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~")
-            log.info(f"block                 : {self.bot_state.newest_block + 1}")
-            log.info(f"hash                  : {transaction['hash']}")
-            log.info(f"from                  : {transaction['from']}")
-            log.info(f"to                    : {transaction['to']}")
-            log.info(f"type                  : {int(transaction['type'],16)}")
-            # log.info(f"input                : {tx_calldata}")
-            log.info(f"gas                   : {int(transaction['gas'],16)}")
-            log.info(f"gasPrice              : {int(transaction['gasPrice'],16)}")
-            log.info(f"base_fee_next         : {self.bot_state.base_fee_next}")
-
-            if transaction["type"] in (2, "0x2", 3, "0x3"):
-                log.info(
-                    f"maxFeePerGas          : {int(transaction['maxFeePerGas'],16)}"
-                )
-                log.info(
-                    f"maxPriorityFeePerGas  : {int(transaction['maxPriorityFeePerGas'],16)}"
-                )
-
-            log.info(f"nonce                 : {int(transaction['nonce'],16)}")
-            log.info(f"value                 : {int(transaction['value'],16)}")
-
-            tx_helper = degenbot.UniswapTransaction(
-                chain_id=self.bot_state.chain_id,
-                tx_hash=transaction["hash"],
-                tx_nonce=transaction["nonce"],
-                tx_value=transaction["value"],
-                tx_sender=transaction["from"],
-                func_name=func_object.fn_name,
-                func_params=func_parameters,
-                router_address=transaction["to"],
-            )
-        except degenbot.exceptions.TransactionError as exc:
-            log.error(f"(process_pending_transactions) (TransactionError) {exc}")
-            return
-        except web3.exceptions.TransactionNotFound as exc:
-            log.error(f"(process_pending_transactions) (TransactionNotFound) {exc}")
-            return
-        except Exception as exc:
-            log.error(
-                f"(process_pending_transactions) (catch-all) ({type(exc)}): {exc}"
-            )
-            return
-
-        try:
-            sim_results = tx_helper.simulate(silent=True)
-            num_pools = len(sim_results)
-            log.info(f"{num_pools} Pool(s) affected")
-
-            # for sim_result in sim_results:
-            # 	#log.info(f"sim_result           : {sim_result}")
-            # 	log.info(f"current_state        : {sim_result[1].current_state}")
-            # 	log.info(f"future_state         : {sim_result[1].future_state}")
-            # 	print()
-            # log.info(f"sim_results          : {sim_results}")
-
-        except degenbot.exceptions.ManagerError as exc:
-            log.info(f"(process_mempool_transactions) (ManagerError): {exc}")
-            return
-        except degenbot.exceptions.TransactionError as exc:
-            log.error(f"(process_mempool_transactions) (TransactionError): {exc}")
-            return
-        except KeyError as exc:
-            log.error(f"(process_mempool_transactions) (KeyError): {exc}")
-            return
-        except Exception as exc:
-            log.error(
-                f"(process_pending_transactions) (catch-all) ({type(exc)}): {exc}"
-            )
-            return
-
-        # Cache the set of pools in the TX
-        pool_set = set([pool for pool, _ in sim_results])
-        log.info(f"Pools                 : {pool_set}")
-
-        # Find arbitrage helpers that use pools in the TX path
-        arb_helpers: List[degenbot.UniswapLpCycle] = [
-            arb_details.lp_cycle
-            for arb_details in self.bot_state.all_arbs.values()
-            if (
-                # 2pool arbs are always evaluated
-                len(arb_details.lp_cycle.swap_pools) == 2
-                and pool_set.intersection(
-                    set(pool.address for pool in arb_details.lp_cycle.swap_pools)
-                )
-            )
-            or (
-                len(arb_details.lp_cycle.swap_pools) == 3
-                and pool_set.intersection(
-                    # evaluate only 3pool arbs with an affected pool in
-                    # the middle position if "REDUCE" mode is active
-                    (arb_details.lp_cycle.swap_pools[1].address,)
-                    if constants.REDUCE_TRIANGLE_ARBS
-                    else
-                    # evaluate all 3pool arbs
-                    set(pool.address for pool in arb_details.lp_cycle.swap_pools)
-                )
-            )
-        ]
-
-        # If there are helpers that contain any of the pools, process them.
-        if arb_helpers:
-            log.info("Call process_backrun_arbs")
-            # await process_backrun_arbs(
-            # 	arb_helpers=arb_helpers,
-            # 	override_state=sim_results,
-            # 	pending_transaction=transaction,
-            # )
-
-        print()
+        await self.print_transaction_details(transaction)
 
     async def process_aggregator_transaction(self, transaction):
         log.info("~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~")
         log.info("~ AGGREGATOR TRANSACTION")
         log.info("~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~·~")
+
+        await self.print_transaction_details(transaction)
+    
+    async def print_transaction_details(self, transaction):
         log.info(f"block                 : {self.bot_state.newest_block + 1}")
         log.info(f"hash                  : {transaction['hash']}")
         log.info(f"from                  : {transaction['from']}")
         log.info(f"to                    : {transaction['to']}")
         log.info(f"type                  : {int(transaction['type'],16)}")
-        # log.info(f"input                : {tx_calldata}")
-        log.info(f"gas                   : {int(transaction['gas'],16)}")
-        log.info(f"gasPrice              : {int(transaction['gasPrice'],16)}")
-        log.info(f"base_fee_next         : {self.bot_state.base_fee_next}")
 
-        if transaction["type"] in (2, "0x2", 3, "0x3"):
+        if 'gasPrice' in transaction:
+            log.info(f"gasPrice              : {int(transaction['gasPrice'],16)}")
+        if 'maxFeePerGas' in transaction:
             log.info(f"maxFeePerGas          : {int(transaction['maxFeePerGas'],16)}")
-            log.info(
-                f"maxPriorityFeePerGas  : {int(transaction['maxPriorityFeePerGas'],16)}"
-            )
+        if 'maxPriorityFeePerGas' in transaction:
+            log.info(f"maxPriorityFeePerGas  : {int(transaction['maxPriorityFeePerGas'],16)}")
 
         log.info(f"nonce                 : {int(transaction['nonce'],16)}")
         log.info(f"value                 : {int(transaction['value'],16)}")
-
-        # TODO do something with the transaction
-
-        print()
