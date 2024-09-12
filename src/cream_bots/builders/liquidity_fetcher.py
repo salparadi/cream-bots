@@ -202,7 +202,7 @@ def main():
                     block_span = int(1.05 * block_span)
 
         lp_helper = MockV3LiquidityPool()
-        lp_helper._sparse_bitmap = False
+        lp_helper.sparse_liquidity_map = False
         lp_helper._liquidity_lock = Lock()
         lp_helper._slot0_lock = Lock()
         lp_helper._state_lock = Lock()
