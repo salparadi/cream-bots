@@ -10,7 +10,7 @@ from degenbot.arbitrage.uniswap_lp_cycle import (
     ArbitrageCalculationResult,
     UniswapLpCycle,
 )
-from degenbot.uniswap.v3_dataclasses import (
+from degenbot.uniswap.v3_types import (
     UniswapV3PoolExternalUpdate,
 )
 from degenbot.uniswap.v3_snapshot import (

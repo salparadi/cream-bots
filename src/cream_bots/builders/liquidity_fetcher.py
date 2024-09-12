@@ -9,7 +9,8 @@ from tqdm import tqdm
 from typing import Dict
 from web3._utils.events import get_event_data
 from web3._utils.filters import construct_event_filter_params
-from degenbot import (
+
+from degenbot.uniswap.v3_types import (
     UniswapV3BitmapAtWord,
     UniswapV3LiquidityAtTick,
     UniswapV3PoolExternalUpdate,
