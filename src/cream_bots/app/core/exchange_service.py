@@ -84,21 +84,37 @@ class ExchangeService:
                 if version == "v3":
                     tick_lens = to_checksum_address(factory_info.get("tick_lens"))
 
-                    factory_deployment = UniswapV3ExchangeDeployment(
-                        name=f"{chain_name} {exchange_name} {version}",
-                        chain_id=chain_id,
-                        factory=UniswapFactoryDeployment(
-                            address=factory_address,
-                            deployer=None,
-                            pool_init_hash=HexStr(pool_init_hash),
-                            pool_abi=UNISWAP_V3_POOL_ABI,
-                        ),
-                        tick_lens=UniswapTickLensDeployment(
-                            address=tick_lens,
-                            abi=UNISWAP_V3_TICKLENS_ABI,
-                        ),
-                    )
-
+                    if exchange_name == "uniswap":
+                        factory_deployment = UniswapV3ExchangeDeployment(
+                            name=f"{chain_name} {exchange_name} {version}",
+                            chain_id=chain_id,
+                            factory=UniswapFactoryDeployment(
+                                address=factory_address,
+                                deployer=None,
+                                pool_init_hash=HexStr(pool_init_hash),
+                                pool_abi=UNISWAP_V3_POOL_ABI,
+                            ),
+                            tick_lens=UniswapTickLensDeployment(
+                                address=tick_lens,
+                                abi=UNISWAP_V3_TICKLENS_ABI,
+                                ),
+                        )
+                    elif exchange_name == "pancakeswap":
+                        factory_deployment = UniswapV3ExchangeDeployment(
+                            name=f"{chain_name} {exchange_name} {version}",
+                            chain_id=chain_id,
+                            factory=UniswapFactoryDeployment(
+                                address=factory_address,
+                                deployer=None,
+                                pool_init_hash=HexStr(pool_init_hash),
+                                pool_abi=PANCAKESWAP_V3_POOL_ABI,
+                            ),
+                            tick_lens=UniswapTickLensDeployment(
+                                address=tick_lens,
+                                abi=UNISWAP_V3_TICKLENS_ABI,
+                            ),
+                        )
+                        
                     try:
                         register_exchange(factory_deployment)
                         log.info(
