@@ -440,6 +440,11 @@ class EventService:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
                         
+                        # set the first event
+                        if self.bot_state.first_event is None:
+                            self.bot_state.first_event = message["params"]["result"]["blockNumber"]
+                            log.info(f"First event: {self.bot_state.first_event}")
+
                         message_data = message.get("data")
                         if message_data:
                             event = ujson.loads(message_data.decode("utf-8"))

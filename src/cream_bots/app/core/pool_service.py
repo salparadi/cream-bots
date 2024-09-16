@@ -36,11 +36,11 @@ class PoolService:
         """
         chain_data = self.bot_state.chain_data
 
-        self.app_state = await get_redis_value(self.redis_client, "app_state")
-        self.average_blocktime = self.app_state.get("average_blocktime")
-        self.first_event = self.app_state.get("first_event")
-
-        log.info(f"First event: {self.first_event}")
+        if not self.bot_state.first_event:
+            log.info("Waiting for first event...")
+            await asyncio.sleep(1)
+        
+        log.info(f"First event: {self.bot_state.first_event}")
 
         if not chain_data:
             log.error(
@@ -48,13 +48,14 @@ class PoolService:
             )
             return
 
-        while not self.first_event:
+        while not self.bot_state.first_event:
+            log.info("Waiting for first event...")
             await asyncio.sleep(1)
 
         snapshot = self.bot_state.snapshot
         factories = chain_data.get("factories")
 
-        snapshot.fetch_new_liquidity_events(self.first_event - 1)
+        snapshot.fetch_new_liquidity_events(self.bot_state.first_event - 1)
 
         for version, factories in factories.items():
             for exchange_name, factory_info in factories.items():
@@ -219,6 +220,7 @@ class PoolService:
         log.info("Arb loading complete")
 
         self.bot_state.pools_loaded = True
+        self.bot_state.live = True
 
 
     async def create_pool_helper(

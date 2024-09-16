@@ -6,21 +6,18 @@ from dataclasses import dataclass, field
 import degenbot
 import os
 import redis.asyncio as redis
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+from typing import Dict, Optional, Set
 import web3
 
 from degenbot.uniswap.v3_snapshot import (
     UniswapV3LiquiditySnapshot,
-)
-from degenbot.arbitrage.uniswap_lp_cycle import (
-    ArbitrageCalculationResult,
-    UniswapLpCycle,
 )
 
 from cream_chains import chain_data as cream_chains_data
 
 from ..core.arbitrage_service import ArbitrageService
 from ..core.blacklist_service import BlacklistService
+from ..core.bootstrap_service import BootstrapService
 from ..core.event_service import EventService
 from ..core.exchange_service import ExchangeService
 from ..core.pool_service import PoolService
@@ -36,28 +33,39 @@ class ArbDetails:
         self.status = status
 
 
-@dataclass
 class ArbBotState:
-    aggregators: Optional[Dict] = None
-    all_arbs: Dict[str, ArbDetails] = field(default_factory=dict)
-    all_pools: degenbot.AllPools = field(default_factory=degenbot.AllPools)
-    blacklists: Set[str] = field(default_factory=set)
-    chain_id: Optional[int] = None
-    chain_data: Optional[Dict] = None
-    chain_name: Optional[str] = None
-    executor: Optional[ProcessPoolExecutor] = None
-    factories: Optional[Dict] = None
-    http_session: Optional[ClientSession] = None
-    http_uri: Optional[str] = None
-    live: bool = False
-    node: Optional[str] = None
-    pool_managers: Optional[Dict] = None
-    pools_to_process: Queue = field(default_factory=Queue)
-    redis_client: redis.Redis = None
-    routers: Optional[Dict] = None
-    snapshot: Optional[UniswapV3LiquiditySnapshot] = None
-    websocket_uri: Optional[str] = None
-    w3: web3.main.Web3 = None
+    def __init__(self, chain_name: str, chain_data: Dict):
+        self.aggregators: Optional[Dict] = chain_data.get("aggregators")
+        self.all_arbs: Dict[str, ArbDetails] = {}
+        self.all_pools: degenbot.AllPools = degenbot.AllPools(chain_data["chain_id"])
+        self.blacklists: Set[str] = set()
+        self.chain_id: int = chain_data["chain_id"]
+        self.chain_data: Dict = chain_data
+        self.chain_name: str = chain_name
+        self.executor: ProcessPoolExecutor = ProcessPoolExecutor(max_workers=8)
+        self.factories: Optional[Dict] = chain_data.get("factories")
+        self.http_session: ClientSession = ClientSession()
+        self.http_uri: str = chain_data["http_uri"]
+        self.live: bool = False
+        self.node: str = chain_data["node"]
+        self.pool_managers: Dict = {}
+        self.pools_to_process: Queue = Queue()
+        self.redis_client: redis.Redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+        self.routers: Optional[Dict] = chain_data.get("routers")
+        self.snapshot: Optional[UniswapV3LiquiditySnapshot] = None
+        self.websocket_uri: str = chain_data["websocket_uri"]
+        self.w3: web3.Web3 = web3.Web3(web3.WebsocketProvider(chain_data["websocket_uri"]))
+
+        # Attributes from external app_state
+        self.average_blocktime: Optional[float] = None
+        self.base_fee_last: Optional[int] = None
+        self.base_fee_next: Optional[int] = None
+        self.first_block: Optional[int] = None
+        self.first_event: Optional[int] = None
+        self.newest_block: Optional[int] = None
+        self.newest_block_timestamp: Optional[int] = None
+        self.watching_blocks: bool = False
+        self.watching_events: bool = False
 
 
 class ArbBot:
@@ -70,69 +78,40 @@ class ArbBot:
 
         Attributes:
             chain_name (str): The name of the chain.
-            bot_state (BotState): The state of the bot.
+            arbitrage_service (ArbitrageService): The arbitrage service used by the bot.
             blacklist_service (BlacklistService): The blacklist service used by the bot.
+            bot_state (BotState): The state of the bot.
+            bootstrap_service (BootstrapService): The bootstrap service used by the bot.
+            event_service (EventService): The event service used by the bot.
             exchange_service (ExchangeService): The exchange service used by the bot.
             pool_service (PoolService): The pool service used by the bot.
         """
         self.chain_name = chain_name
-        self.bot_state = self.setup_bot_state()
+        chain_data = cream_chains_data.get(self.chain_name)
+        if not chain_data:
+            raise ValueError(f"No chain data found for {self.chain_name}")
+        self.bot_state = ArbBotState(self.chain_name, chain_data)
+
+        # Initialize web3
+        degenbot.set_web3(self.bot_state.w3)
+
         self.arbitrage_service = ArbitrageService(self.bot_state)
+        self.bootstrap_service = BootstrapService(self.bot_state)
         self.blacklist_service = BlacklistService(self.bot_state)
         self.event_service = EventService(self.bot_state)
         self.exchange_service = ExchangeService(self.bot_state)
         self.pool_service = PoolService(self.bot_state)
 
-    def setup_bot_state(self) -> ArbBotState:
-        """
-        Sets up the state of the bot by initializing various attributes and retrieving chain data.
-
-        Returns:
-            BotState: The initialized state of the bot.
-
-        Raises:
-            ValueError: If no chain data is found for the specified chain name.
-        """
-        chain_data = cream_chains_data.get(self.chain_name)
-        chain_id = chain_data["chain_id"]
-        w3 = web3.Web3(web3.WebsocketProvider(chain_data["websocket_uri"]))
-        degenbot.set_web3(w3)
-
-        if not chain_data:
-            raise ValueError(f"No chain data found for {self.chain_name}")
-
+        # Initialize snapshot
         script_dir = os.path.dirname(os.path.abspath(__file__))
         data_dir = os.path.abspath(
             os.path.join(script_dir, "..", "..", "data", self.chain_name)
         )
         snapshot_filename = f"{self.chain_name}_v3_liquidity_snapshot.json"
         snapshot_filepath = os.path.join(data_dir, snapshot_filename)
-        snapshot = UniswapV3LiquiditySnapshot(snapshot_filepath)
+        self.bot_state.snapshot = UniswapV3LiquiditySnapshot(snapshot_filepath)
 
-        return ArbBotState(
-            aggregators=chain_data["aggregators"],
-            all_arbs={},
-            all_pools=degenbot.AllPools(chain_id),
-            blacklists={},
-            chain_id=chain_id,
-            chain_data=chain_data,
-            chain_name=self.chain_name,
-            executor=ProcessPoolExecutor(max_workers=8),
-            factories=chain_data["factories"],
-            http_session=ClientSession(),
-            http_uri=chain_data["http_uri"],
-            live=True,
-            node=chain_data["node"],
-            pool_managers={},
-            pools_to_process=Queue(),
-            redis_client=redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0),
-            routers=chain_data["routers"],
-            snapshot=snapshot,
-            websocket_uri=chain_data["websocket_uri"],
-            w3=w3,
-        )
-
-    async def bootstrap(self):
+    async def initialize(self):
         """
         Initializes the bot by adding deployments to the exchange service
         and creating pool managers for the bot state.
@@ -155,9 +134,27 @@ class ArbBot:
         """
         Runs the bot by starting the event loop and running the main loop.
         """
-        await self.bootstrap()
+        # Start bootstrap service in the background
+        bootstrap_task = asyncio.create_task(self.bootstrap_service.start())
+
+        # Run initialization
+        await self.initialize()
+
+        # Start process_uniswap_events immediately in the background
+        uniswap_events_task = asyncio.create_task(self.event_service.process_uniswap_events())
+
+        # Wait for bot_state.live to become True
+        while not self.bot_state.live:
+            await asyncio.sleep(1)
+            log.info("Waiting for bot_state.live to become True...")
+
+        log.info("Bot state is live. Starting main processes.")
+
+        # Start arbitrage process
+        arbitrage_task = asyncio.create_task(self.arbitrage_service.find_onchain_arbs())
 
         await asyncio.gather(
-            self.event_service.process_uniswap_events(),
-            self.arbitrage_service.find_onchain_arbs()
+            uniswap_events_task,
+            arbitrage_task,
+            bootstrap_task
         )

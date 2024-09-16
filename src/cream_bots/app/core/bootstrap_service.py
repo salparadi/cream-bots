@@ -51,4 +51,6 @@ class BootstrapService:
                 setattr(self.bot_state, key, app_state[key])
                 #log.info(f"Updated {key}: {old_value} -> {app_state[key]}")
 
-        log.info(f"Updated bot state. Newest block: {self.bot_state.newest_block}")
+        #log.info(f"Updated bot state. Newest block: {self.bot_state.newest_block}")
+        #log.info(f"Updated bot state. Live: {self.bot_state.live}")
+        #log.info(f"Updated bot state. First event: {self.bot_state.first_event}")
