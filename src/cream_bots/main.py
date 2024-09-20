@@ -2,9 +2,8 @@ import argparse
 import asyncio
 
 from .app.bots.arb_bot import ArbBot
-from .app.bots.callback_bot import CallbackBot
+from .app.bots.callback_bot.callback_bot import CallbackBot
 from .app.bots.sniper_bot import SniperBot
-
 
 async def run_bot(bot_class, chain_name):
     bot = bot_class(chain_name)

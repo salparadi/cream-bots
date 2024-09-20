@@ -36,7 +36,7 @@ class PoolService:
         """
         chain_data = self.bot_state.chain_data
 
-        if not self.bot_state.first_event:
+        while not self.bot_state.first_event:
             log.info("Waiting for first event...")
             await asyncio.sleep(1)
         
@@ -47,10 +47,6 @@ class PoolService:
                 f"No chain info available for chain_id {self.bot_state.chain_name}"
             )
             return
-
-        while not self.bot_state.first_event:
-            log.info("Waiting for first event...")
-            await asyncio.sleep(1)
 
         snapshot = self.bot_state.snapshot
         factories = chain_data.get("factories")
@@ -175,7 +171,7 @@ class PoolService:
         log.info(f"Found {len(unique_tokens)} unique tokens")
 
         # Sleep if the event watcher is not running
-        while not self.first_event:
+        while not self.bot_state.first_event:
             await asyncio.sleep(self.average_blocktime)
 
         # TEST trim to make the bot load fast.
@@ -282,7 +278,7 @@ class PoolService:
                     self.bot_state.pool_managers,
                     self.bot_state.chain_data["factories"]["v2"],
                     self.bot_state.chain_data["factories"]["v3"],
-                    self.first_event
+                    self.bot_state.first_event
                 )
                 if helper is not None:
                     if isinstance(helper, degenbot.V3LiquidityPool):

@@ -53,4 +53,4 @@ class BootstrapService:
 
         #log.info(f"Updated bot state. Newest block: {self.bot_state.newest_block}")
         #log.info(f"Updated bot state. Live: {self.bot_state.live}")
-        #log.info(f"Updated bot state. First event: {self.bot_state.first_event}")
+        log.info(f"Updated bot state. First event: {self.bot_state.first_event}")
